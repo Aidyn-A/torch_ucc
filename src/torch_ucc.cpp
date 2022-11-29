@@ -283,9 +283,18 @@ bool ProcessGroupUCC::WorkUCC::wait(std::chrono::milliseconds /* unused */) {
   // If timeout occurs, UCC will return UCC_ERR_TIMEOUT as the status.  The
   // main thread will throw out the exception then. There is no "abort"
   // function in UCC currently.
+#ifdef USE_ACTIVE_SETS
+  ucc_status_t status;
+  CommUCC* ucc_comm = (c10d::CommUCC*) entry_->comm_;
+  while (UCC_OK != (status = ucc_collective_test(entry_->request_))) {
+      ucc_context_progress(ucc_comm->context);
+  }
+#else
   while (!isCompleted())
     ;
+
   setAndThrowException();
+#endif
   // manually call profiling end callbacks if they are set,
   // since progress thread does not own WorkUCC
   if (ProcessGroup::Work::recordFunctionEndCallback_) {
